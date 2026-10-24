@@ -25,6 +25,9 @@
     drag: 0.992,
     wallRetention: 0.75,
     maxSpeed: 900,
+    cornerMargin: 8,
+    smashWindow: 1,
+    smashMax: 2,
   };
 
   const SPRINT = {
@@ -802,6 +805,7 @@
       this.lastGoalBy = null;
       this.lastTouch = null;
       this.smashTimer = 0;
+      this.smashTimes = [];
 
       this.players[0].reset(FIELD.cx - 160, FIELD.cy, 0);
       this.players[1].reset(FIELD.cx + 160, FIELD.cy, Math.PI);
@@ -972,6 +976,28 @@
         b.vx = -Math.abs(b.vx) * BALL.wallRetention;
         b.vy *= BALL.wallRetention;
       }
+
+      const margin = BALL.cornerMargin;
+      const nearLeft = b.x - r <= x0 + margin;
+      const nearRight = b.x + r >= x1 - margin;
+      const nearTop = b.y - r <= y0 + margin;
+      const nearBottom = b.y + r >= y1 - margin;
+
+      if ((nearLeft || nearRight) && (nearTop || nearBottom)) {
+        this.resetBallToCenter();
+      }
+    }
+
+    resetBallToCenter() {
+      const oldX = this.ball.x;
+      const oldY = this.ball.y;
+      this.ball.reset(FIELD.cx, FIELD.cy);
+      this.lastTouch = null;
+      this.stuckTimer = 0;
+      this.smashTimes.length = 0;
+      this.effects.burst(oldX, oldY, "#ffffff", 10, 180);
+      this.effects.burst(FIELD.cx, FIELD.cy, "#ffffff", 18, 260);
+      this.effects.addShake(6);
     }
 
     resolvePlayerBall(p, index) {
@@ -1069,6 +1095,18 @@
       this.effects.addShake(14);
       this.effects.addFlash(0.5, "#ffd166");
       this.smashTimer = COMBO.banner;
+
+      const now = this.playClock;
+      this.smashTimes.push(now);
+      while (
+        this.smashTimes.length > 0 &&
+        now - this.smashTimes[0] > BALL.smashWindow
+      ) {
+        this.smashTimes.shift();
+      }
+      if (this.smashTimes.length > BALL.smashMax) {
+        this.resetBallToCenter();
+      }
     }
 
     updateStuck(dt) {
@@ -1127,6 +1165,7 @@
       this.countdown = MATCH.kickoffCountdown;
       this.stuckTimer = 0;
       this.lastTouch = null;
+      this.smashTimes.length = 0;
 
       this.players[0].reset(FIELD.cx - 160, FIELD.cy, 0);
       this.players[1].reset(FIELD.cx + 160, FIELD.cy, Math.PI);
