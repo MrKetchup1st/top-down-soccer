@@ -633,6 +633,8 @@
     constructor(match, index) {
       this.match = match;
       this.index = index;
+      this.attackLeft = index === 1;
+      this.goalX = this.attackLeft ? FIELD.x0 : FIELD.x1;
       this.intent = {
         up: false,
         down: false,
@@ -722,7 +724,7 @@
       bx = Math.max(x0 + b.radius, Math.min(x1 - b.radius, bx));
       by = Math.max(y0 + b.radius, Math.min(y1 - b.radius, by));
 
-      let gx = x0 - bx;
+      let gx = this.goalX - bx;
       let gy = cy - by;
       const gd = Math.hypot(gx, gy) || 1;
       gx /= gd;
@@ -778,7 +780,9 @@
         this.intent.up ||
         this.intent.down;
       const far = Math.hypot(dx, dy) > 100;
-      const defensive = bx > FIELD.cx + 120;
+      const defensive = this.attackLeft
+        ? bx > FIELD.cx + 120
+        : bx < FIELD.cx - 120;
       const sprintOK =
         !(defensive && !behind) &&
         !(!behind && distBall < 160);
@@ -1714,7 +1718,7 @@
     {
       title: "Score goals",
       html: `
-        <p>Play a friend on one keyboard, or take on the CPU as P1. It is always 1v1.</p>
+        <p>Play a friend on one keyboard, take on the CPU as P1, or watch two CPUs. It is always 1v1.</p>
         <ul>
           <li><b>P1</b> attacks the <b>right</b> goal. <b>P2</b> attacks the <b>left</b> goal.</li>
           <li>First to <b>5 goals</b> wins. If the 2:30 clock runs out, the higher score wins.</li>
@@ -1780,7 +1784,7 @@
     {
       title: "Score goals",
       html: `
-        <p>Grab a joystick and play 1v1 on one screen.</p>
+        <p>Grab a joystick and play 1v1 on one screen, or watch the CPUs.</p>
         <ul>
           <li><b>P1</b> attacks the <b>right</b> goal. <b>P2</b> attacks the <b>left</b> goal.</li>
           <li>First to <b>5 goals</b> wins. Higher score after 2:30 wins.</li>
@@ -1850,7 +1854,9 @@
     const menuPanel = el("div", "menu-panel");
     menuBackdrop.appendChild(menuPanel);
 
-    menuPanel.appendChild(el("p", "menu-kicker", "1P vs AI · 2P local"));
+    menuPanel.appendChild(
+      el("p", "menu-kicker", "1P vs AI · 2P local · Watch AI"),
+    );
     menuPanel.appendChild(el("h1", "menu-title", "TOP-DOWN SOCCER"));
     menuPanel.appendChild(
       el(
@@ -1875,6 +1881,13 @@
       startGame("2p");
     });
     menuPanel.appendChild(playLocalButton);
+
+    const watchButton = button("menu-button", "Watch AI vs AI");
+    watchButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      startGame("watch");
+    });
+    menuPanel.appendChild(watchButton);
 
     const guideButton = button("menu-button", "How to Play");
     guideButton.addEventListener("click", (event) => {
@@ -2477,16 +2490,28 @@
     let last = performance.now();
     let acc = 0;
 
-    const ai = new AIController(match, 1);
+    const aiP1 = new AIController(match, 0);
+    const aiP2 = new AIController(match, 1);
     let mode = "ai";
+    let watchRestartTimer = 0;
 
     function applyMode() {
       for (const player of match.players) player.mobile = mobileControls;
 
+      if (mode === "watch") {
+        match.setController(0, aiP1);
+        match.setController(1, aiP2);
+        match.players[0].name = "AI 1";
+        match.players[1].name = "AI 2";
+        if (mobileControls) joysticks.setVisible(false, false);
+        return;
+      }
+
       if (mobileControls) {
         match.setController(0, touch1);
+        match.players[0].name = "P1";
         if (mode === "ai") {
-          match.setController(1, ai);
+          match.setController(1, aiP2);
           match.players[1].name = "AI";
           joysticks.setVisible(true, false);
         } else {
@@ -2497,8 +2522,10 @@
         return;
       }
 
+      match.setController(0, input);
+      match.players[0].name = "P1";
       if (mode === "ai") {
-        match.setController(1, ai);
+        match.setController(1, aiP2);
         match.players[1].name = "AI";
       } else {
         match.setController(1, input);
@@ -2510,6 +2537,7 @@
       const changed = nextMode !== mode;
       mode = nextMode;
       applyMode();
+      watchRestartTimer = 0;
       if (changed || match.state === "ended") match.reset();
       paused = false;
       last = performance.now();
@@ -2527,6 +2555,7 @@
       last = performance.now();
       acc = 0;
       input.clear();
+      watchRestartTimer = 0;
       if (restartButton) restartButton.hidden = true;
     }
 
@@ -2626,6 +2655,18 @@
             steps += 1;
           }
           if (steps >= 10) acc = 0;
+
+          if (mode === "watch") {
+            if (match.state === "ended") {
+              watchRestartTimer += dt;
+              if (watchRestartTimer >= 1) {
+                watchRestartTimer = 0;
+                match.reset();
+              }
+            } else {
+              watchRestartTimer = 0;
+            }
+          }
         }
       }
 
@@ -2634,6 +2675,7 @@
       if (restartButton) {
         restartButton.hidden = !(
           match.state === "ended" &&
+          mode !== "watch" &&
           !paused &&
           !(settings && settings.isOpen) &&
           !(menu && menu.isOpen)
