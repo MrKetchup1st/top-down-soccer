@@ -82,7 +82,7 @@
   };
 
   const MATCH = {
-    duration: 90,
+    duration: 150,
     targetScore: 5,
     kickoffCountdown: 3,
     goalPause: 1.2,
@@ -1675,10 +1675,6 @@
       ctx.fillStyle = "#ffffff";
       ctx.font = "bold 40px system-ui, sans-serif";
       ctx.fillText(`${m.score[0]} – ${m.score[1]}`, cx, cy + 36);
-
-      ctx.fillStyle = "rgba(255,255,255,0.8)";
-      ctx.font = "bold 18px system-ui, sans-serif";
-      ctx.fillText("Press R to play again", cx, cy + 92);
     }
 
     ctx.restore();
@@ -1721,7 +1717,7 @@
         <p>Play a friend on one keyboard, or take on the CPU as P1. It is always 1v1.</p>
         <ul>
           <li><b>P1</b> attacks the <b>right</b> goal. <b>P2</b> attacks the <b>left</b> goal.</li>
-          <li>First to <b>5 goals</b> wins. If the 90-second clock runs out, the higher score wins.</li>
+          <li>First to <b>5 goals</b> wins. If the 2:30 clock runs out, the higher score wins.</li>
           <li>A tie at full time goes to <b>sudden death</b>: the next goal wins.</li>
         </ul>`,
     },
@@ -1787,7 +1783,7 @@
         <p>Grab a joystick and play 1v1 on one screen.</p>
         <ul>
           <li><b>P1</b> attacks the <b>right</b> goal. <b>P2</b> attacks the <b>left</b> goal.</li>
-          <li>First to <b>5 goals</b> wins. Higher score after 90 seconds wins.</li>
+          <li>First to <b>5 goals</b> wins. Higher score after 2:30 wins.</li>
           <li>A tie at full time goes to sudden death.</li>
         </ul>`,
     },
@@ -1861,8 +1857,8 @@
         "p",
         "menu-subtitle",
         isMobile
-          ? "First to 5 · 90 seconds · touch joysticks"
-          : "First to 5 · 90 seconds · one keyboard",
+          ? "First to 5 · 2:30 · touch joysticks"
+          : "First to 5 · 2:30 · one keyboard",
       ),
     );
 
@@ -2438,6 +2434,30 @@
     };
   }
 
+  function createRestartButton(parent, onRestart) {
+    if (
+      !parent ||
+      typeof document === "undefined" ||
+      typeof document.createElement !== "function"
+    ) {
+      return null;
+    }
+
+    const button = document.createElement("button");
+    button.className = "restart-button";
+    button.type = "button";
+    button.tabIndex = -1;
+    button.textContent = "Play Again";
+    button.hidden = true;
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (button.blur) button.blur();
+      onRestart();
+    });
+    parent.appendChild(button);
+    return button;
+  }
+
   function boot() {
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
@@ -2497,6 +2517,20 @@
     }
 
     applyMode();
+
+    const wrap = canvas.parentElement || document.body;
+    let restartButton = null;
+
+    function restartMatch() {
+      match.reset();
+      paused = false;
+      last = performance.now();
+      acc = 0;
+      input.clear();
+      if (restartButton) restartButton.hidden = true;
+    }
+
+    restartButton = createRestartButton(wrap, restartMatch);
 
     const settings = mobileControls ? null : createSettingsUI(input, match);
     const menu = createMenuUI(
@@ -2572,9 +2606,7 @@
             settings.open();
           }
           if (input.consumePressed("KeyR")) {
-            match.reset();
-            paused = false;
-            acc = 0;
+            restartMatch();
           }
           if (input.consumePressed("KeyP") || input.consumePressed("Escape")) {
             paused = !paused;
@@ -2598,6 +2630,15 @@
       }
 
       input.endFrame();
+
+      if (restartButton) {
+        restartButton.hidden = !(
+          match.state === "ended" &&
+          !paused &&
+          !(settings && settings.isOpen) &&
+          !(menu && menu.isOpen)
+        );
+      }
 
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
       ctx.clearRect(0, 0, WORLD.w, WORLD.h);

@@ -21,6 +21,7 @@ body {
 }
 
 .wrap {
+  position: relative;
   width: 100vw;
   height: 100vh;
   height: 100dvh;
@@ -567,4 +568,29 @@ canvas {
   .guide-actions .settings-button {
     padding: 12px 18px;
   }
+}
+
+.restart-button {
+  position: absolute;
+  left: 50%;
+  top: 74%;
+  z-index: 2;
+  min-height: 48px;
+  padding: clamp(10px, 1.8vmin, 14px) clamp(20px, 3vmin, 32px);
+  font: inherit;
+  font-size: clamp(14px, 2.2vmin, 18px);
+  font-weight: 800;
+  color: #07120c;
+  background: linear-gradient(180deg, #7ee787, #4cc9f0);
+  border: 0;
+  border-radius: 12px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: filter 120ms, transform 120ms;
+}
+
+.restart-button:hover {
+  filter: brightness(1.08);
+  transform: translate(-50%, -50%) translateY(-1px);
 }
