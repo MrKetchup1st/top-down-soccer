@@ -25,8 +25,8 @@
     drag: 0.992,
     wallRetention: 0.75,
     maxSpeed: 900,
-    cornerMargin: 8,
-    cornerHold: 2,
+    cornerRadius: 32,
+    cornerHold: 2.5,
     smashWindow: 1,
     smashMax: 2,
   };
@@ -1032,14 +1032,12 @@
         b.vy *= BALL.wallRetention;
       }
 
-      const margin = BALL.cornerMargin;
-      const nearLeft = b.x - r <= x0 + margin;
-      const nearRight = b.x + r >= x1 - margin;
-      const nearTop = b.y - r <= y0 + margin;
-      const nearBottom = b.y + r >= y1 - margin;
-
+      const cornerRadius = BALL.cornerRadius;
       const inCorner =
-        (nearLeft || nearRight) && (nearTop || nearBottom);
+        Math.hypot(b.x - x0, b.y - y0) <= cornerRadius ||
+        Math.hypot(b.x - x1, b.y - y0) <= cornerRadius ||
+        Math.hypot(b.x - x0, b.y - y1) <= cornerRadius ||
+        Math.hypot(b.x - x1, b.y - y1) <= cornerRadius;
 
       if (inCorner) {
         this.cornerTimer += dt;
@@ -1808,7 +1806,7 @@
         <ul>
           <li>If both players touch the ball within <b>0.12s</b>, it fires away at top speed.</li>
           <li>Try pinching the ball between both players.</li>
-          <li>If the ball stays in a corner for 2 seconds, it resets to the center.</li>
+          <li>If the ball stays within 32px of a corner for 2.5 seconds, it resets to the center.</li>
         </ul>`,
     },
     {
