@@ -322,6 +322,16 @@
       this.dashTimer = 0;
     }
 
+    getHitbox() {
+      const half = this.radius / Math.SQRT2;
+      return {
+        left: this.x - half,
+        right: this.x + half,
+        top: this.y - half,
+        bottom: this.y + half,
+      };
+    }
+
     updateStamina(dt, sprinting) {
       if (sprinting) {
         this.sprinting = true;
@@ -1041,25 +1051,48 @@
 
     resolvePlayerBall(p, index) {
       const b = this.ball;
-      let dx = b.x - p.x;
-      let dy = b.y - p.y;
-      let d = Math.hypot(dx, dy);
-      const min = p.radius + b.radius;
+      const box = p.getHitbox();
+      const closestX = Math.max(box.left, Math.min(b.x, box.right));
+      const closestY = Math.max(box.top, Math.min(b.y, box.bottom));
+      const dx = b.x - closestX;
+      const dy = b.y - closestY;
+      const d = Math.hypot(dx, dy);
 
-      if (d >= min) return;
+      if (d >= b.radius) return;
 
-      if (d < 0.0001) {
-        dx = 1;
-        dy = 0;
-        d = 1;
+      let nx;
+      let ny;
+
+      if (d > 0.0001) {
+        nx = dx / d;
+        ny = dy / d;
+        b.x = closestX + nx * b.radius;
+        b.y = closestY + ny * b.radius;
+      } else {
+        const leftPen = b.x - box.left;
+        const rightPen = box.right - b.x;
+        const topPen = b.y - box.top;
+        const bottomPen = box.bottom - b.y;
+        const minPen = Math.min(leftPen, rightPen, topPen, bottomPen);
+
+        if (minPen === leftPen) {
+          nx = -1;
+          ny = 0;
+          b.x = box.left - b.radius;
+        } else if (minPen === rightPen) {
+          nx = 1;
+          ny = 0;
+          b.x = box.right + b.radius;
+        } else if (minPen === topPen) {
+          nx = 0;
+          ny = -1;
+          b.y = box.top - b.radius;
+        } else {
+          nx = 0;
+          ny = 1;
+          b.y = box.bottom + b.radius;
+        }
       }
-
-      const nx = dx / d;
-      const ny = dy / d;
-      const overlap = min - d;
-
-      b.x += nx * overlap;
-      b.y += ny * overlap;
 
       if (p.touchCooldown > 0) return;
 
