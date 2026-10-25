@@ -911,8 +911,8 @@
 
         const rel = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
         if (rel > 0) {
-          const aAttacking = a.sprinting || a.dashTimer > 0;
-          const bAttacking = b.sprinting || b.dashTimer > 0;
+          const aAttacking = a.dashTimer > 0;
+          const bAttacking = b.dashTimer > 0;
           const aCanTackle = aAttacking && a.tackleCooldown <= 0;
           const bCanTackle = bAttacking && b.tackleCooldown <= 0;
 
@@ -1672,7 +1672,7 @@
       html: `
         <p>Tackle and smash are your power moves.</p>
         <ul>
-          <li><b>Tackle:</b> sprint or dash into the other player. They are stunned and knocked back.</li>
+          <li><b>Tackle:</b> dash into the other player. They are stunned and knocked back.</li>
           <li><b>Smash:</b> if both players touch the ball within 0.12s, it fires away at top speed.</li>
           <li>Try pinching the ball between both players for a smash.</li>
         </ul>`,
