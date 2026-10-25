@@ -15,7 +15,7 @@
   const PLAYER = {
     radius: 18,
     accel: 2600,
-    maxSpeed: 380,
+    maxSpeed: 323,
     drag: 0.88,
     recoil: 0.08,
   };
@@ -37,17 +37,17 @@
     exhaustedRegen: 10,
     recoverDelay: 0.8,
     recover: 25,
-    speed: 500,
+    speed: 425,
     accel: 3800,
   };
 
   const DASH = {
     minStamina: 50,
     cost: 75,
-    impulseStill: 520,
-    impulseRun: 900,
+    impulseStill: 546,
+    impulseRun: 945,
     duration: 0.2,
-    maxSpeed: 950,
+    maxSpeed: 998,
   };
 
   const CONTACT = {
