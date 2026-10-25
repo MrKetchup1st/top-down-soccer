@@ -26,6 +26,7 @@
     wallRetention: 0.75,
     maxSpeed: 900,
     cornerMargin: 8,
+    cornerHold: 2,
     smashWindow: 1,
     smashMax: 2,
   };
@@ -855,6 +856,7 @@
       this.lastTouch = null;
       this.smashTimer = 0;
       this.smashTimes = [];
+      this.cornerTimer = 0;
 
       this.players[0].reset(FIELD.cx - 160, FIELD.cy, 0);
       this.players[1].reset(FIELD.cx + 160, FIELD.cy, Math.PI);
@@ -924,7 +926,7 @@
 
       this.resolvePlayers();
       this.ball.update(dt);
-      this.resolveBallWalls();
+      this.resolveBallWalls(dt);
       for (let i = 0; i < this.players.length; i++) {
         this.resolvePlayerBall(this.players[i], i);
       }
@@ -997,7 +999,7 @@
       this.effects.addFlash(0.18, "#ffd166");
     }
 
-    resolveBallWalls() {
+    resolveBallWalls(dt = 0) {
       const b = this.ball;
       const r = b.radius;
       const { x0, y0, x1, y1, cy } = FIELD;
@@ -1032,8 +1034,16 @@
       const nearTop = b.y - r <= y0 + margin;
       const nearBottom = b.y + r >= y1 - margin;
 
-      if ((nearLeft || nearRight) && (nearTop || nearBottom)) {
-        this.resetBallToCenter();
+      const inCorner =
+        (nearLeft || nearRight) && (nearTop || nearBottom);
+
+      if (inCorner) {
+        this.cornerTimer += dt;
+        if (this.cornerTimer >= BALL.cornerHold) {
+          this.resetBallToCenter();
+        }
+      } else {
+        this.cornerTimer = 0;
       }
     }
 
@@ -1043,6 +1053,7 @@
       this.ball.reset(FIELD.cx, FIELD.cy);
       this.lastTouch = null;
       this.stuckTimer = 0;
+      this.cornerTimer = 0;
       this.smashTimes.length = 0;
       this.effects.burst(oldX, oldY, "#ffffff", 10, 180);
       this.effects.burst(FIELD.cx, FIELD.cy, "#ffffff", 18, 260);
@@ -1191,6 +1202,7 @@
       if (this.stuckTimer >= MATCH.stuckLimit) {
         this.ball.reset(FIELD.cx, FIELD.cy);
         this.stuckTimer = 0;
+        this.cornerTimer = 0;
         this.effects.burst(FIELD.cx, FIELD.cy, "#ffffff", 12, 180);
       }
     }
@@ -1237,6 +1249,7 @@
       this.countdown = MATCH.kickoffCountdown;
       this.stuckTimer = 0;
       this.lastTouch = null;
+      this.cornerTimer = 0;
       this.smashTimes.length = 0;
 
       this.players[0].reset(FIELD.cx - 160, FIELD.cy, 0);
@@ -1795,7 +1808,7 @@
         <ul>
           <li>If both players touch the ball within <b>0.12s</b>, it fires away at top speed.</li>
           <li>Try pinching the ball between both players.</li>
-          <li>Corner hits and repeated smashes reset the ball to the center.</li>
+          <li>If the ball stays in a corner for 2 seconds, it resets to the center.</li>
         </ul>`,
     },
     {
