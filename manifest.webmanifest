@@ -1,7 +1,7 @@
 {
   "name": "Top-Down Soccer",
   "short_name": "Soccer",
-  "description": "A fast 1v1 top-down soccer game. Play against the CPU or a friend on one keyboard.",
+  "description": "A fast 1v1 top-down soccer game. Play against the CPU or a friend on one keyboard, or with touch joysticks on mobile.",
   "lang": "en",
   "dir": "ltr",
   "start_url": "./",

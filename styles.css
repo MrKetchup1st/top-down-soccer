@@ -471,3 +471,100 @@ canvas {
   font-size: clamp(16px, 2.2vmin, 20px);
   text-align: center;
 }
+
+.joystick {
+  position: fixed;
+  bottom: max(14px, 2.5vmin);
+  bottom: calc(max(14px, 2.5vmin) + env(safe-area-inset-bottom, 0px));
+  width: clamp(104px, 26vmin, 168px);
+  height: clamp(104px, 26vmin, 168px);
+  z-index: 25;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.joystick-left {
+  left: max(14px, 3vmin);
+}
+
+.joystick-right {
+  right: max(14px, 3vmin);
+}
+
+.joystick-base {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 40%,
+    rgba(255, 255, 255, 0.12),
+    rgba(8, 18, 13, 0.4)
+  );
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.35),
+    inset 0 0 30px rgba(255, 255, 255, 0.05);
+  touch-action: none;
+}
+
+.joystick-left .joystick-base {
+  border-color: rgba(76, 201, 240, 0.55);
+}
+
+.joystick-right .joystick-base {
+  border-color: rgba(247, 127, 0, 0.55);
+}
+
+.joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44%;
+  height: 44%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 38% 32%,
+    #ffffff,
+    #cfd8dc 65%,
+    #9aa7ad
+  );
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.joystick-label {
+  position: absolute;
+  left: 50%;
+  top: -1.5em;
+  transform: translateX(-50%);
+  color: rgba(234, 245, 238, 0.7);
+  font-size: clamp(10px, 1.5vmin, 13px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
+@media (pointer: coarse) {
+  .menu-play {
+    min-height: 56px;
+  }
+
+  .menu-button,
+  .settings-button,
+  .bind-btn {
+    min-height: 48px;
+  }
+
+  .guide-dot {
+    width: 12px;
+    height: 12px;
+  }
+
+  .settings-actions .settings-button,
+  .guide-actions .settings-button {
+    padding: 12px 18px;
+  }
+}

@@ -41,6 +41,11 @@
     accel: 3800,
   };
 
+  const MOBILE = {
+    speed: SPRINT.speed * 0.9,
+    accel: 3030,
+  };
+
   const DASH = {
     minStamina: 50,
     cost: 75,
@@ -295,6 +300,7 @@
       this.dark = opts.dark;
       this.controls = opts.controls;
       this.radius = PLAYER.radius;
+      this.mobile = Boolean(opts.mobile);
       this.reset(opts.x, opts.y, opts.dir);
     }
 
@@ -363,19 +369,36 @@
       const c = this.controls;
       let ix = 0;
       let iy = 0;
-      if (input.isDown(c.left)) ix -= 1;
-      if (input.isDown(c.right)) ix += 1;
-      if (input.isDown(c.up)) iy -= 1;
-      if (input.isDown(c.down)) iy += 1;
+      if (typeof input.getMove === "function") {
+        const move = input.getMove();
+        if (move) {
+          ix = Number(move.x) || 0;
+          iy = Number(move.y) || 0;
+        }
+      } else {
+        if (input.isDown(c.left)) ix -= 1;
+        if (input.isDown(c.right)) ix += 1;
+        if (input.isDown(c.up)) iy -= 1;
+        if (input.isDown(c.down)) iy += 1;
+        const keyboardLen = Math.hypot(ix, iy);
+        if (keyboardLen > 0) {
+          ix /= keyboardLen;
+          iy /= keyboardLen;
+        }
+      }
 
-      const len = Math.hypot(ix, iy);
-      if (len > 0) {
+      let len = Math.hypot(ix, iy);
+      if (len > 1) {
         ix /= len;
         iy /= len;
+        len = 1;
+      }
+      if (len > 0.12) {
         this.dir = Math.atan2(iy, ix);
       }
 
       if (
+        !this.mobile &&
         input.consumePressed(c.dash) &&
         this.stamina >= DASH.minStamina &&
         this.stunTimer <= 0
@@ -398,7 +421,7 @@
         this.dashTimer = DASH.duration;
       }
 
-      const sprintDown = input.isDown(c.sprint);
+      const sprintDown = !this.mobile && input.isDown(c.sprint);
       if (!sprintDown) {
         this.sprintArmed = true;
       } else if (this.exhausted || this.stamina <= 0) {
@@ -413,7 +436,11 @@
         this.stamina > 0;
       this.updateStamina(dt, wantSprint);
 
-      const accel = this.sprinting ? SPRINT.accel : PLAYER.accel;
+      const accel = this.sprinting
+        ? SPRINT.accel
+        : this.mobile
+          ? MOBILE.accel
+          : PLAYER.accel;
       this.vx += ix * accel * dt;
       this.vy += iy * accel * dt;
 
@@ -421,7 +448,11 @@
       this.vx *= drag;
       this.vy *= drag;
 
-      let limit = this.sprinting ? SPRINT.speed : PLAYER.maxSpeed;
+      let limit = this.sprinting
+        ? SPRINT.speed
+        : this.mobile
+          ? MOBILE.speed
+          : PLAYER.maxSpeed;
       if (this.dashTimer > 0) limit = DASH.maxSpeed;
       const speed = Math.hypot(this.vx, this.vy);
       if (speed > limit) {
@@ -742,6 +773,7 @@
         !(!behind && distBall < 160);
 
       this.intent.sprint =
+        !p.mobile &&
         moving &&
         !p.exhausted &&
         p.stamina > 15 &&
@@ -749,6 +781,7 @@
         (far || (canPush && p.stamina > 45));
 
       if (
+        !p.mobile &&
         this.dashCooldown <= 0 &&
         p.stamina >= DASH.minStamina &&
         !p.exhausted &&
@@ -1404,27 +1437,31 @@
     ctx.textBaseline = "middle";
     ctx.fillText(p.name, x, y - radius - 9);
 
-    const staminaFrac = Math.max(0, Math.min(1, p.stamina / SPRINT.max));
-    ctx.strokeStyle = "rgba(0,0,0,0.4)";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(x, y, radius + 5, -Math.PI / 2, Math.PI * 1.5);
-    ctx.stroke();
+    if (!p.mobile) {
+      const staminaFrac = Math.max(0, Math.min(1, p.stamina / SPRINT.max));
+      ctx.strokeStyle = "rgba(0,0,0,0.4)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(x, y, radius + 5, -Math.PI / 2, Math.PI * 1.5);
+      ctx.stroke();
 
-    const ready = canDash(p);
-    ctx.strokeStyle = ready ? "#7ee787" : "#ff5d5d";
-    ctx.lineWidth = ready ? 5 : 4;
-    ctx.globalAlpha = p.exhausted ? 0.55 + Math.sin(time * 14) * 0.35 : 0.95;
-    ctx.beginPath();
-    ctx.arc(
-      x,
-      y,
-      radius + 5,
-      -Math.PI / 2,
-      -Math.PI / 2 + Math.PI * 2 * staminaFrac,
-    );
-    ctx.stroke();
-    ctx.globalAlpha = 1;
+      const ready = canDash(p);
+      ctx.strokeStyle = ready ? "#7ee787" : "#ff5d5d";
+      ctx.lineWidth = ready ? 5 : 4;
+      ctx.globalAlpha = p.exhausted
+        ? 0.55 + Math.sin(time * 14) * 0.35
+        : 0.95;
+      ctx.beginPath();
+      ctx.arc(
+        x,
+        y,
+        radius + 5,
+        -Math.PI / 2,
+        -Math.PI / 2 + Math.PI * 2 * staminaFrac,
+      );
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
 
     if (p.stunTimer > 0) {
       const pulse = 0.5 + Math.sin(time * 18) * 0.5;
@@ -1697,7 +1734,51 @@
     },
   ];
 
-  function createMenuUI(input, match, settings, onStart) {
+  const MOBILE_GUIDE_PAGES = [
+    {
+      title: "Score goals",
+      html: `
+        <p>Grab a joystick and play 1v1 on one screen.</p>
+        <ul>
+          <li><b>P1</b> attacks the <b>right</b> goal. <b>P2</b> attacks the <b>left</b> goal.</li>
+          <li>First to <b>5 goals</b> wins. Higher score after 90 seconds wins.</li>
+          <li>A tie at full time goes to sudden death.</li>
+        </ul>`,
+    },
+    {
+      title: "Move and shoot",
+      html: `
+        <p>Push your joystick to move. There is no kick button.</p>
+        <ul>
+          <li>Run into the ball to push it. Your angle and speed send it.</li>
+          <li>Walls bounce the ball and cut <b>25%</b> of its speed.</li>
+          <li>Both players move at <b>90% of sprint speed</b>. Sprint, stamina, and dash are off on touch.</li>
+        </ul>`,
+    },
+    {
+      title: "Smash",
+      html: `
+        <p>Smash is your power move.</p>
+        <ul>
+          <li>If both players touch the ball within <b>0.12s</b>, it fires away at top speed.</li>
+          <li>Try pinching the ball between both players.</li>
+          <li>Corner hits and repeated smashes reset the ball to the center.</li>
+        </ul>`,
+    },
+    {
+      title: "Touch controls",
+      html: `
+        <p>Use the joysticks on screen.</p>
+        <ul>
+          <li><b>P1</b> uses the left joystick. <b>P2</b> uses the right joystick.</li>
+          <li>In <b>Play vs AI</b>, only the left joystick appears; the CPU controls P2.</li>
+          <li>Push the stick fully for top speed.</li>
+          <li>Tap <b>Menu</b> in the top-left to leave a match.</li>
+        </ul>`,
+    },
+  ];
+
+  function createMenuUI(input, match, settings, onStart, isMobile) {
     if (
       typeof document === "undefined" ||
       typeof document.createElement !== "function" ||
@@ -1705,6 +1786,8 @@
     ) {
       return null;
     }
+
+    const pages = isMobile ? MOBILE_GUIDE_PAGES : GUIDE_PAGES;
 
     const el = (tag, className, text) => {
       const node = document.createElement(tag);
@@ -1728,7 +1811,13 @@
     menuPanel.appendChild(el("p", "menu-kicker", "1P vs AI · 2P local"));
     menuPanel.appendChild(el("h1", "menu-title", "TOP-DOWN SOCCER"));
     menuPanel.appendChild(
-      el("p", "menu-subtitle", "First to 5 · 90 seconds · one keyboard"),
+      el(
+        "p",
+        "menu-subtitle",
+        isMobile
+          ? "First to 5 · 90 seconds · touch joysticks"
+          : "First to 5 · 90 seconds · one keyboard",
+      ),
     );
 
     const playAButton = button("menu-play", "Play vs AI");
@@ -1752,15 +1841,23 @@
     });
     menuPanel.appendChild(guideButton);
 
-    const controlsButton = button("menu-button", "Controls");
-    controlsButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      if (settings) settings.open();
-    });
-    menuPanel.appendChild(controlsButton);
+    if (!isMobile && settings) {
+      const controlsButton = button("menu-button", "Controls");
+      controlsButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (settings) settings.open();
+      });
+      menuPanel.appendChild(controlsButton);
+    }
 
     menuPanel.appendChild(
-      el("p", "menu-footer", "M menu · O controls · P pause · R restart"),
+      el(
+        "p",
+        "menu-footer",
+        isMobile
+          ? "Use the on-screen joysticks · Menu to leave a match"
+          : "M menu · O controls · P pause · R restart",
+      ),
     );
 
     const guideBackdrop = el("div", "guide-backdrop");
@@ -1782,7 +1879,7 @@
 
     const dotRow = el("div", "guide-dots");
     const dots = [];
-    for (let i = 0; i < GUIDE_PAGES.length; i++) {
+    for (let i = 0; i < pages.length; i++) {
       const dot = button("guide-dot", "");
       dot.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -1817,7 +1914,7 @@
     guideActions.appendChild(navGroup);
     guidePanel.appendChild(guideActions);
 
-    const menuToggle = button("menu-toggle", "Menu (M)");
+    const menuToggle = button("menu-toggle", isMobile ? "Menu" : "Menu (M)");
     menuToggle.addEventListener("click", (event) => {
       event.stopPropagation();
       openMenu();
@@ -1837,19 +1934,19 @@
     };
 
     function renderPage() {
-      const data = GUIDE_PAGES[page];
+      const data = pages[page];
       guideTitle.textContent = data.title;
       guideBody.innerHTML = data.html;
-      guideCount.textContent = `${page + 1} / ${GUIDE_PAGES.length}`;
+      guideCount.textContent = `${page + 1} / ${pages.length}`;
       for (let i = 0; i < dots.length; i++) {
         dots[i].classList.toggle("active", i === page);
       }
       prevButton.disabled = page === 0;
-      nextButton.disabled = page === GUIDE_PAGES.length - 1;
+      nextButton.disabled = page === pages.length - 1;
     }
 
     function setPage(index) {
-      page = Math.max(0, Math.min(GUIDE_PAGES.length - 1, index));
+      page = Math.max(0, Math.min(pages.length - 1, index));
       renderPage();
       input.clear();
     }
@@ -1897,7 +1994,7 @@
     }
 
     function nextPage() {
-      if (page < GUIDE_PAGES.length - 1) setPage(page + 1);
+      if (page < pages.length - 1) setPage(page + 1);
     }
 
     function prevPage() {
@@ -2130,12 +2227,183 @@
     };
   }
 
+  class TouchController {
+    constructor(joystick) {
+      this.joystick = joystick;
+    }
+
+    getMove() {
+      return this.joystick.getVector();
+    }
+
+    isDown() {
+      return false;
+    }
+
+    consumePressed() {
+      return false;
+    }
+
+    endFrame() {}
+
+    clear() {
+      this.joystick.reset();
+    }
+  }
+
+  function detectMobile() {
+    try {
+      if (typeof window === "undefined") return false;
+      if (
+        typeof URLSearchParams !== "undefined" &&
+        window.location &&
+        window.location.search
+      ) {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has("mobile")) return true;
+        if (params.has("desktop")) return false;
+      }
+      if (!window.matchMedia) return false;
+      if (window.matchMedia("(pointer: coarse)").matches) return true;
+      return Boolean(
+        typeof navigator !== "undefined" &&
+          navigator.maxTouchPoints > 0 &&
+          window.matchMedia("(hover: none)").matches,
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  function createJoysticks() {
+    if (
+      typeof document === "undefined" ||
+      typeof document.createElement !== "function" ||
+      !document.body
+    ) {
+      return null;
+    }
+
+    const make = (side, label) => {
+      const root = document.createElement("div");
+      root.className = `joystick joystick-${side}`;
+      const base = document.createElement("div");
+      base.className = "joystick-base";
+      const knob = document.createElement("div");
+      knob.className = "joystick-knob";
+      base.appendChild(knob);
+      const name = document.createElement("span");
+      name.className = "joystick-label";
+      name.textContent = label;
+      root.appendChild(base);
+      root.appendChild(name);
+      document.body.appendChild(root);
+
+      const state = { x: 0, y: 0, active: false, pointerId: null };
+      let maxTravel = 1;
+
+      const setKnob = (dx, dy) => {
+        knob.style.transform = `translate(-50%, -50%) translate(${dx}px, ${dy}px)`;
+      };
+      const reset = () => {
+        state.x = 0;
+        state.y = 0;
+        state.active = false;
+        state.pointerId = null;
+        setKnob(0, 0);
+      };
+      const update = (clientX, clientY) => {
+        const rect = base.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        maxTravel = (rect.width / 2) * 0.62;
+        let dx = clientX - cx;
+        let dy = clientY - cy;
+        const dist = Math.hypot(dx, dy);
+        if (dist > maxTravel && dist > 0) {
+          dx = (dx / dist) * maxTravel;
+          dy = (dy / dist) * maxTravel;
+        }
+        setKnob(dx, dy);
+        const nx = dx / maxTravel;
+        const ny = dy / maxTravel;
+        if (Math.hypot(nx, ny) < 0.12) {
+          state.x = 0;
+          state.y = 0;
+        } else {
+          state.x = nx;
+          state.y = ny;
+        }
+      };
+      const onDown = (event) => {
+        if (state.active) return;
+        state.active = true;
+        state.pointerId = event.pointerId;
+        if (base.setPointerCapture) {
+          try {
+            base.setPointerCapture(event.pointerId);
+          } catch {}
+        }
+        event.preventDefault();
+        update(event.clientX, event.clientY);
+      };
+      const onMove = (event) => {
+        if (!state.active || event.pointerId !== state.pointerId) return;
+        event.preventDefault();
+        update(event.clientX, event.clientY);
+      };
+      const onUp = (event) => {
+        if (!state.active || event.pointerId !== state.pointerId) return;
+        if (base.releasePointerCapture) {
+          try {
+            base.releasePointerCapture(event.pointerId);
+          } catch {}
+        }
+        reset();
+      };
+
+      base.addEventListener("pointerdown", onDown);
+      base.addEventListener("pointermove", onMove);
+      base.addEventListener("pointerup", onUp);
+      base.addEventListener("pointercancel", onUp);
+      base.addEventListener("lostpointercapture", onUp);
+      base.addEventListener("contextmenu", (event) => event.preventDefault());
+      setKnob(0, 0);
+
+      return {
+        getVector() {
+          return { x: state.x, y: state.y };
+        },
+        reset,
+        setVisible(visible) {
+          root.hidden = !visible;
+          if (!visible) reset();
+        },
+      };
+    };
+
+    return {
+      left: make("left", "P1"),
+      right: make("right", "P2"),
+      setVisible(leftVisible, rightVisible) {
+        this.left.setVisible(leftVisible);
+        this.right.setVisible(rightVisible);
+      },
+    };
+  }
+
   function boot() {
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
     const input = new Input();
     const match = new Match(input);
     applyControls(match, loadControls());
+
+    const isMobile = detectMobile();
+    const joysticks = isMobile ? createJoysticks() : null;
+    const touch1 = joysticks ? new TouchController(joysticks.left) : null;
+    const touch2 = joysticks ? new TouchController(joysticks.right) : null;
+    const mobileControls = Boolean(isMobile && touch1 && touch2);
 
     const STEP = 1 / 120;
     let scale = 1;
@@ -2147,6 +2415,22 @@
     let mode = "ai";
 
     function applyMode() {
+      for (const player of match.players) player.mobile = mobileControls;
+
+      if (mobileControls) {
+        match.setController(0, touch1);
+        if (mode === "ai") {
+          match.setController(1, ai);
+          match.players[1].name = "AI";
+          joysticks.setVisible(true, false);
+        } else {
+          match.setController(1, touch2);
+          match.players[1].name = "P2";
+          joysticks.setVisible(true, true);
+        }
+        return;
+      }
+
       if (mode === "ai") {
         match.setController(1, ai);
         match.players[1].name = "AI";
@@ -2168,8 +2452,14 @@
 
     applyMode();
 
-    const settings = createSettingsUI(input, match);
-    const menu = createMenuUI(input, match, settings, startFromMenu);
+    const settings = mobileControls ? null : createSettingsUI(input, match);
+    const menu = createMenuUI(
+      input,
+      match,
+      settings,
+      startFromMenu,
+      mobileControls,
+    );
     if (menu) menu.openMenu();
 
     function resize() {
@@ -2296,7 +2586,9 @@
     COMBO,
     STUN,
     SPRINT,
+    MOBILE,
     DASH,
+    MOBILE_GUIDE_PAGES,
     AIController,
     ACTIONS,
     ACTION_LABELS,
