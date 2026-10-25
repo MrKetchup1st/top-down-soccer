@@ -44,7 +44,8 @@
   const DASH = {
     minStamina: 50,
     cost: 75,
-    impulse: 760,
+    impulseStill: 520,
+    impulseRun: 900,
     duration: 0.2,
     maxSpeed: 950,
   };
@@ -387,8 +388,13 @@
           this.sprintArmed = false;
           this.regenDelay = SPRINT.recoverDelay;
         }
-        this.vx += dx * DASH.impulse;
-        this.vy += dy * DASH.impulse;
+        const speedNow = Math.hypot(this.vx, this.vy);
+        const runness = Math.min(1, speedNow / SPRINT.speed);
+        const impulse =
+          DASH.impulseStill +
+          (DASH.impulseRun - DASH.impulseStill) * runness;
+        this.vx += dx * impulse;
+        this.vy += dy * impulse;
         this.dashTimer = DASH.duration;
       }
 
@@ -1663,6 +1669,7 @@
         <p>Dash is a short burst of speed.</p>
         <ul>
           <li>It needs at least <b>50 stamina</b> and spends <b>75</b>.</li>
+          <li>A running dash travels farther than a standing dash.</li>
           <li>Use it to close distance, blast the ball, or tackle.</li>
           <li>You cannot dash while stunned or under 50 stamina.</li>
         </ul>`,
